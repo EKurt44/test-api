@@ -1,0 +1,38 @@
+name: Deploy Backend to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Checkout code
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    # Step 2: Set up Java
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+
+    # Step 3: Build Spring Boot Application
+    - name: Build with Maven
+      run: mvn clean package
+
+    # Step 4: Deploy to AWS EC2
+    - name: Deploy to EC2
+      env:
+        EC2_HOST: <13.51.198.21>
+        EC2_USER: ubuntu
+        SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+      run: |
+        scp -i "$SSH_PRIVATE_KEY" target/*.jar $EC2_USER@$EC2_HOST:~/todo-backend/todo-app.jar
+        ssh -i "$SSH_PRIVATE_KEY" $EC2_USER@$EC2_HOST <<EOF
+        pkill -f 'java -jar' || true
+        nohup java -jar ~/todo-backend/todo-app.jar > ~/todo-backend/app.log 2>&1 &
+        EOF
